@@ -68,7 +68,8 @@ def generate_data(n=100, datatype='', seed = 0, val = False):
 
     elif datatype == 'XOR':
 
-        X = np.abs(np.random.randn(n, 10))
+        X = np.random.randn(n, 10) #does not seem like there should be an absolute value here
+        # X = np.abs(np.random.randn(n, 10))
         y = generate_XOR_labels(X)    
 
     elif datatype == 'nonlinear_additive':
