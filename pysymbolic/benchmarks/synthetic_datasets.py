@@ -116,11 +116,12 @@ def create_data(datatype, n = 1000):
 
     input_shape                 = x_train.shape[1]
     
+    #rest of this code not present in origional l2x
     y_train_                    = (y_train[:,0]>0.5)*1
     y_val_                      = (y_val[:,0]>0.5)*1
 
-    x_train = (x_train - np.min(x_train))/np.max(x_train - np.min(x_train))
-    x_val   = (x_val - np.min(x_val))/np.max(x_val - np.min(x_val))
+    #x_train = (x_train - np.min(x_train))/np.max(x_train - np.min(x_train))
+    #x_val   = (x_val - np.min(x_val))/np.max(x_val - np.min(x_val))
 
     return x_train, y_train_, x_val, y_val_, datatypes_val
 
