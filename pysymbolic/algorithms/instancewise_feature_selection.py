@@ -187,7 +187,7 @@ def L2X(datatype, activation, num_samples, tot_num_features, num_selected_featur
      
     activation = 'relu' if datatype in ['orange_skin','XOR'] else 'selu'
     
-    # P(S|X)
+    # P(S|X): conditional distribution over P_k
     model_input = Input(shape=(input_shape,), dtype='float32') 
 
     net = Dense(num_hidden, activation=activation, name = 's/dense1', 
@@ -240,11 +240,13 @@ def L2X(datatype, activation, num_samples, tot_num_features, num_selected_featur
                        optimizer='rmsprop',
                        metrics=None)  #metrics=[None]) 
     
-    scores = pred_model.predict(x_val, verbose = 0, batch_size = BATCH_SIZE) 
+    scores = pred_model.predict(x_val, verbose = 0, batch_size = BATCH_SIZE)
+    
+    ranks = create_rank(scores, num_selected_features)
 
     median_ranks = compute_median_rank(scores, k = num_selected_features, datatype_val=datatype_val)
 
-    return median_ranks
+    return model, pred_model, x_train, y_train, x_val, y_val, scores, ranks, median_ranks
 
 def get_instancewise_median_ranks(dataset_, num_samples, num_selected_features, method_):
     
