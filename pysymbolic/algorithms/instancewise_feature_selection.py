@@ -246,7 +246,8 @@ def L2X(datatype, activation, num_samples, tot_num_features, num_selected_featur
 
     median_ranks = compute_median_rank(scores, k = num_selected_features, datatype_val=datatype_val)
 
-    return model, pred_model, x_train, y_train, x_val, y_val, scores, ranks, median_ranks
+    # return model, pred_model, x_train, y_train, x_val, y_val, scores, ranks, median_ranks
+    return median_ranks
 
 def get_instancewise_median_ranks(dataset_, num_samples, num_selected_features, method_):
     
