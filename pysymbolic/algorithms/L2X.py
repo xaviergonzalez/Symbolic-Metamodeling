@@ -70,7 +70,8 @@ class Sample_Concrete(Layer):
 
         batch_size = tf.shape(logits_)[0]
         d = tf.shape(logits_)[2]
-        uniform = tf.random_uniform(shape =(batch_size, self.k, d), 
+        #random_uniform vs. random.uniform
+        uniform = tf.random.uniform(shape =(batch_size, self.k, d), 
             minval = np.finfo(tf.float32.as_numpy_dtype).tiny,
             maxval = 1.0)
 
