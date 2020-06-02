@@ -5,6 +5,8 @@ This script contains functions for generating synthetic data.
 The code is based on https://github.com/Jianbo-Lab/CCM
 and https://github.com/Jianbo-Lab/L2X
 
+Added a feats term to allow us to reduce the number of total features from 10 to a number of our choosing
+
 """ 
 from __future__ import print_function
 import numpy as np  
@@ -42,7 +44,7 @@ def generate_additive_labels(X):
 
 
 
-def generate_data(n=100, datatype='', seed = 0, val = False):
+def generate_data(n=100, datatype='', seed = 0, feats = 10, val = False):
     """
     Generate data (X,y)
     Args:
@@ -63,23 +65,23 @@ def generate_data(n=100, datatype='', seed = 0, val = False):
     datatypes = None 
 
     if datatype == 'orange_skin':
-        X = np.random.randn(n, 10)
+        X = np.random.randn(n, feats)
         y = generate_orange_labels(X) 
 
     elif datatype == 'XOR':
 
-        X = np.random.randn(n, 10) #does not seem like there should be an absolute value here
+        X = np.random.randn(n, feats) #does not seem like there should be an absolute value here
         # X = np.abs(np.random.randn(n, 10))
         y = generate_XOR_labels(X)    
 
     elif datatype == 'nonlinear_additive':
 
-        X = np.random.randn(n, 10)
+        X = np.random.randn(n, feats)
         y = generate_additive_labels(X) 
 
     elif datatype == 'switch':
 
-        X = np.random.randn(n, 10)
+        X = np.random.randn(n, feats)
 
         # Construct X as a mixture of two Gaussians.
         X[:n//2,-1] += 3
@@ -107,12 +109,12 @@ def generate_data(n=100, datatype='', seed = 0, val = False):
     return X, y, datatypes 
 
 
-def create_data(datatype, n = 1000): 
+def create_data(datatype, n = 1000, nval = 10 ** 3, feats = 10): 
     """
     Create train and validation datasets.
     """
-    x_train, y_train, _         = generate_data(n = n, datatype = datatype, seed = 0)  
-    x_val, y_val, datatypes_val = generate_data(n = 10 ** 3, datatype = datatype, seed = 1)  
+    x_train, y_train, _         = generate_data(n = n, datatype = datatype, seed = 0, feats = feats)  
+    x_val, y_val, datatypes_val = generate_data(n = nval, datatype = datatype, seed = 1, feats = feats)  
 
     input_shape                 = x_train.shape[1]
     

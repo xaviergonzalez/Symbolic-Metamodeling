@@ -92,6 +92,7 @@ class Sample_Concrete(Layer):
 The code for L2X is adapted from: 
 https://github.com/Jianbo-Lab/L2X/blob/master/synthetic/explain.py
 Changed further to be more flexible
+L2X_flex takes in the training and validation data, while also returning the trained model, meaning we should be able to attack it
 """
 
 def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, out_activation='sigmoid', 
@@ -99,7 +100,7 @@ def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, 
     
     BATCH_SIZE  = len(x_train)
     # x_train, y_train, x_val, y_val, datatype_val = create_data(datatype, n = num_samples)
-    input_shape = len(x_train[0])
+    input_shape = x_train.shape[1]
      
     # activation = 'relu' if datatype in ['orange_skin','XOR'] else 'selu'
     
