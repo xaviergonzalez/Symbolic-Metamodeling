@@ -28,6 +28,9 @@ from pysymbolic.algorithms.keras_predictive_models import *
 from pysymbolic.algorithms.symbolic_expressions import *
 from pysymbolic.algorithms.symbolic_metamodeling import *
 
+#for printing out training results
+from pysymbolic.algorithms.train_visualize import graph_loss
+
 from sympy.printing.theanocode import theano_function
 from sympy.utilities.autowrap import ufuncify
 
@@ -53,6 +56,9 @@ from keras.engine.topology import Layer
 import json
 import random
 from keras import optimizers
+
+#for overwriting directory if already exists
+import shutil
 
 
 class Sample_Concrete(Layer):
@@ -96,9 +102,11 @@ Changed further to be more flexible
 L2X_flex takes in the training and validation data, while also returning the trained model, meaning we should be able to attack it
 """
 
-def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, filepath_, out_activation='sigmoid', 
-        loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True, epochs_ = 1, verbose = 1): 
+def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, filedir, out_activation='sigmoid', 
+        loss='binary_crossentropy', optimizer='adam', num_hidden=200, num_layers=2, train = True, epochs = 1, verbose = 1): 
     
+    #create appropriate filepath based on filedir
+    filepath = filedir + "/cp.ckpt"
     # BATCH_SIZE  = len(x_train)
     # x_train, y_train, x_val, y_val, datatype_val = create_data(datatype, n = num_samples)
     input_shape = x_train.shape[1]
@@ -137,20 +145,24 @@ def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, 
     preds = Dense(1, activation=out_activation, name = 'dense4', 
                   kernel_regularizer=regularizers.l2(1e-3))(net) 
     model = Model(model_input, preds)
-    filepath = filepath_
+    filepath = filepath
     if train: 
         adam = optimizers.Adam(lr = 1e-3)
-        model.compile(loss=loss_, 
-                      optimizer=optimizer_, 
-                      metrics=['acc']) 
+        model.compile(loss=loss, 
+                      optimizer=optimizer, 
+                      metrics=['accuracy']) 
 #         filepath="L2X.hdf5"
 #         checkpoint = ModelCheckpoint(filepath, monitor='val_accuracy', 
 #                                      verbose=0, save_best_only=True, mode='max')
+#         os.mkdir(filedir)
+        if os.path.exists(filedir):
+            shutil.rmtree(filedir)
+        os.makedirs(filedir)
         checkpoint = ModelCheckpoint(filepath, save_weights_only=True)
         callbacks_list = [checkpoint]
-        model.fit(x_train, y_train, verbose=verbose, validation_data = (x_val, y_val), callbacks = callbacks_list, epochs=epochs_) #took out bath size to try to improve accuracy
+        history = model.fit(x_train, y_train, verbose=verbose, validation_data = (x_val, y_val), callbacks = callbacks_list, epochs=epochs) #took out bath size to try to improve accuracy
 #         model.fit(x_train, y_train, verbose=0, callbacks = callbacks_list, epochs=50, batch_size=BATCH_SIZE) #validation_data=(x_val, y_val)
-         
+        graph_loss(history, filedir)
     else:
         model.load_weights(filepath, by_name=True) 
 
