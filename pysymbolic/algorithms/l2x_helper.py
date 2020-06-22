@@ -30,10 +30,10 @@ import logging
 logger = tf.get_logger()
 logger.setLevel(logging.ERROR)
 #for printing out training results
-from pysymbolic.algorithms.train_visualize import graph_loss
+from pysymbolic.algorithms.record import *
 
 #creates model
-def XOR_model(input_shape, num_hidden = 200, regularize = False):
+def compile_model(input_shape, num_hidden = 200, regularize = False):
     if regularize:
         model = tf.keras.Sequential([
         tf.keras.layers.Dense(num_hidden, input_shape=(input_shape,), kernel_regularizer=regularizers.l2(1e-3)),
@@ -72,7 +72,7 @@ def XOR_model(input_shape, num_hidden = 200):
     return model, logits_model
 """
 
-def XOR_model_sig(input_shape, num_hidden = 200, regularize = False):
+def compile_model_sig(input_shape, num_hidden = 200, regularize = False):
     if regularize:
         model = tf.keras.Sequential([
         tf.keras.layers.Dense(num_hidden, input_shape=(input_shape,), kernel_regularizer=regularizers.l2(1e-3)),
@@ -108,22 +108,11 @@ SIG_MESSAGE = '''def XOR_model_mimic_l2x(input_shape, num_hidden = 200):
               metrics=['accuracy'])
     logits_model = tf.keras.Model(model.input,model.layers[-1].output)
     return model, logits_model'''
-    
-#helper function to write the metadata of training XOR model to its checkpoint
-def write_metadata(save_dir, notebook, epochs, len_train, message):
-    f = open(save_dir + "/metadata.txt", "w")
-    f.write('date: %s.\n' % 
-       (datetime.datetime.now()))
-    f.write("notebook: " + notebook + "\n")
-    f.write("epochs: %s.\n" % (epochs))
-    f.write("training_data: %s.\n" % (len_train))
-    f.write("architecture: \n" + message)
-    f.close()
-#trains model
+
 #save model controls whether or not we pass callbacks, need a save_dir
 #how do I save the number of epochs?
 #callbacks needs to be a list
-def train_XOR_model(model, x_train, y_train, x_val, y_val, save_model, save_dir, callbacks, 
+def train_model(model, x_train, y_train, x_val, y_val, save_model, save_dir, callbacks, 
                     message, notebook = "tst", epochs = 1, verbose = 1):
     if save_model:
         history = model.fit(x_train, 
@@ -145,12 +134,12 @@ def train_XOR_model(model, x_train, y_train, x_val, y_val, save_model, save_dir,
 
 #returns model for classifying XOR synthetic data, along with directory for saving
 #activation is either "soft" for softmax or "sig" for sigmoid
-def build_XOR_model(feats, num_hidden, name, activation, regularize = False, verbose = 0):
+def build_model(feats, num_hidden, name, activation, regularize = False, verbose = 0):
     DATE = date.today()
     if activation == "soft":
-        model, logits_model = XOR_model(feats, num_hidden = num_hidden, regularize = regularize)
+        model, logits_model = compile_model(feats, num_hidden = num_hidden, regularize = regularize)
     else:
-        model, logits_model = XOR_model_sig(feats, num_hidden = num_hidden, regularize = regularize)
+        model, logits_model = compile_model_sig(feats, num_hidden = num_hidden, regularize = regularize)
     checkpoint_path = str(DATE) + activation + name + "/cp.ckpt"
     checkpoint_dir = os.path.dirname(checkpoint_path)
     cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
@@ -173,19 +162,29 @@ def misclass_index(x_adv, y_adv, model, activation):
     return [i for i, x in enumerate(class_lst) if Not(x)]
 
 #split indices of misclassified examples into substantial and insubstantial misclassification
-def error_breakdown(x_adv,y_adv, model, activation):
+def error_breakdown(datatype, x_adv,y_adv, model, activation):
     errors = misclass_index(x_adv,y_adv, model, activation)
     sub_errors = []
     insub_errors = []
+    if datatype == "XOR":
+        thresh_fxn = xor_thresh_fxn
+    elif datatype == "orange_skin":
+        thresh_fxn = orange_thresh_fxn
     for i in errors:
-        if min(abs(x_adv[i][0:2])) > 0.1:
+        if thresh_fxn(x_adv, i):
             sub_errors.append(i)
         else:
             insub_errors.append(i)
     return errors, sub_errors, insub_errors
 
-def print_error_breakdown(x_val, y_val, model, activation, mod_name):
-    error, sub_error, insub_error = error_breakdown(x_val, y_val, model, activation)
+def xor_thresh_fxn(arr, i):
+    return min(abs(arr[i][0:2])) > 0.1
+
+def orange_thresh_fxn(arr, i):
+    return abs(np.sum(arr[i,:4]**2) - 4) > 0.1
+
+def print_error_breakdown(datatype, x_val, y_val, model, activation, mod_name):
+    error, sub_error, insub_error = error_breakdown(datatype, x_val, y_val, model, activation)
     denom = len(y_val)
     print(mod_name)
     print("percent of errors: ", 100 * len(error) / denom)
@@ -193,39 +192,49 @@ def print_error_breakdown(x_val, y_val, model, activation, mod_name):
     print("percent of substantial errors: ", 100 * len(sub_error) / denom)
     print()
     
-def test_for_sub_error(name, feats = 10, n_train = 10 ** 4, n_val = 10 ** 4, epochs = 10, epsilon = 0.3, verbose = 0, save_model = True):
+def test_for_sub_error(name, datatype, feats = 10, n_train = 10 ** 4, n_val = 10 ** 4, epochs = 10, epsilon = 0.3, verbose = 0, save_model = True):
     #prepare the training data
     num_hidden = 200
-    x_train, y_train, x_val, y_val, _ = create_data("XOR", n = n_train, nval = n_val, feats = feats)
+    datatype_dict = {"XOR": 2, "orange_skin":4}
+    x_train, y_train, x_val, y_val, _ = create_data(datatype, n = n_train, nval = n_val, feats = feats)
     #initialize and train the various models
-    soft_mod, soft_logits_mod, soft_path, soft_dir, soft_cp = build_XOR_model(feats, num_hidden, name, "soft")
-    train_XOR_model(soft_mod, x_train, y_train, x_val, y_val, save_model, soft_dir, [soft_cp], SOFT_MESSAGE, epochs = epochs, verbose = verbose)
-    sig_mod, sig_logits_mod, sig_path, sig_dir, sig_cp = build_XOR_model(feats, num_hidden, name, "sig")
-    train_XOR_model(sig_mod, x_train, y_train, x_val, y_val, save_model, sig_dir, [sig_cp], SIG_MESSAGE, epochs = epochs, verbose = verbose)
-    l2x_mod, l2x_logit_mod, _, _, _, _ = L2X_flex(x_train, y_train, x_val, y_val, activation = 'relu', filepath_ = "throwaway/cp.ckpt", num_selected_features = 2, out_activation='sigmoid', 
-        loss_='binary_crossentropy', optimizer_='adam', num_hidden=num_hidden, num_layers=2, train = True, epochs_ = epochs, verbose = verbose)
+    soft_mod, soft_logits_mod, soft_path, soft_dir, soft_cp = build_model(feats, num_hidden, name, "soft")
+    train_model(soft_mod, x_train, y_train, x_val, y_val, save_model, soft_dir, [soft_cp], SOFT_MESSAGE, epochs = epochs, verbose = verbose)
+    sig_mod, sig_logits_mod, sig_path, sig_dir, sig_cp = build_model(feats, num_hidden, name, "sig")
+    train_model(sig_mod, x_train, y_train, x_val, y_val, save_model, sig_dir, [sig_cp], SIG_MESSAGE, epochs = epochs, verbose = verbose)
+    l2x_mod, l2x_logit_mod, _, _, _, _ = L2X_flex(x_train, y_train, x_val, y_val, activation = 'relu', filedir = str(date.today()) + "l2x" + 
+                                                  name,num_selected_features = datatype_dict[datatype], out_activation='sigmoid', 
+                                                  loss='binary_crossentropy', optimizer='adam', num_hidden=num_hidden, num_layers=2, 
+                                                  train = True, epochs = epochs, verbose = verbose)
     #create the adversarial examples
     epsilon = epsilon
     x_adv = fast_gradient_method(soft_logits_mod, x_val, epsilon, np.inf, targeted=False)
     x_adv = x_adv.numpy() #turn to np.array from tf object
     #create correct labels for y_adv
-    y_adv = generate_XOR_labels(x_adv)
+    if datatype == "XOR":
+        y_adv = generate_XOR_labels(x_adv)
+    elif datatype == "orange_skin":
+        y_adv = generate_orange_labels(x_adv)
+    elif datatype == "nonlinear_additive":
+        y_adv = generate_additive_labels(x_adv)
     y_adv = (y_adv[:,0]>0.5)*1
-    print_error_breakdown(x_val, y_val, soft_mod, "soft", "soft val " + name)
-    print_error_breakdown(x_adv, y_adv, soft_mod, "soft", "soft adv " + name)
-    print_error_breakdown(x_val, y_val, sig_mod, "sig", "sig val " + name)
-    print_error_breakdown(x_adv, y_adv, sig_mod, "sig", "sig adv " + name)
-    print_error_breakdown(x_val, y_val, l2x_mod, "sig", "l2x val " + name)
-    print_error_breakdown(x_adv, y_adv, l2x_mod, "sig", "l2x adv " + name)
+    print_error_breakdown(datatype, x_val, y_val, soft_mod, "soft", "soft val " + name + datatype)
+    print_error_breakdown(datatype, x_adv, y_adv, soft_mod, "soft", "soft adv " + name + datatype)
+    print_error_breakdown(datatype, x_val, y_val, sig_mod, "sig", "sig val " + name + datatype)
+    print_error_breakdown(datatype, x_adv, y_adv, sig_mod, "sig", "sig adv " + name + datatype )
+    print_error_breakdown(datatype, x_val, y_val, l2x_mod, "sig", "l2x val " + name + datatype )
+    print_error_breakdown(datatype, x_adv, y_adv, l2x_mod, "sig", "l2x adv " + name + datatype)
     
-def feats_to_error_l2x(feats_, epochs = 1, verbose_ = 1):
-    fp = "throwaway/cp.ckpt"
+def feats_to_error_l2x(feats, epochs = 1, verbose = 1):
+    fd = "throwaway"
     epsilon = 0.3
-    x_train, y_train, x_val, y_val, _ = create_data("XOR", n = np.int(1e4), feats = feats_)
+    x_train, y_train, x_val, y_val, _ = create_data("XOR", n = np.int(1e4), feats = feats)
     x_train = np.float32(x_train)
     y_train = np.int32(y_train)
     x_val = np.float32(x_val)
     y_val = np.int32(y_val)
-    l2x_model, _, _, _, _ = L2X_flex(x_train, y_train, x_val, y_val, activation = 'relu', filepath_ = "throwaway/cp.ckpt", num_selected_features = 2, out_activation='sigmoid', 
-        loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True, epochs_ = epochs)
-    l2x_model.evaluate(x_val, y_val, verbose = verbose_)
+    l2x_model, _, _, _, _ = L2X_flex(x_train, y_train, x_val, y_val, activation = 'relu', filedir = "throwaway", num_selected_features = 2,
+                                     out_activation='sigmoid', 
+                                     loss='binary_crossentropy', optimizer='adam', num_hidden=200, num_layers=2, train = True, epochs =
+                                     epochs)
+    l2x_model.evaluate(x_val, y_val, verbose = verbose)

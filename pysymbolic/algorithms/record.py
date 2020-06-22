@@ -1,3 +1,4 @@
+#helper functions to provide insight into experiments
 #standard libraries
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,7 +34,6 @@ def graph_loss(history, filedir):
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
     plt.savefig(filedir + '/acc.png')
-    print("saving graph")
     plt.show()
     # summarize history for loss
     plt.plot(history.history['loss'])
@@ -44,3 +44,14 @@ def graph_loss(history, filedir):
     plt.legend(['train', 'test'], loc='upper left')
     plt.savefig(filedir + '/loss.png')
     plt.show()
+
+#helper function to write the metadata of training XOR model to its checkpoint
+def write_metadata(save_dir, notebook, epochs, len_train, message):
+    f = open(save_dir + "/metadata.txt", "w")
+    f.write('date: %s.\n' % 
+       (datetime.datetime.now()))
+    f.write("notebook: " + notebook + "\n")
+    f.write("epochs: %s.\n" % (epochs))
+    f.write("training_data: %s.\n" % (len_train))
+    f.write("architecture: \n" + message)
+    f.close()

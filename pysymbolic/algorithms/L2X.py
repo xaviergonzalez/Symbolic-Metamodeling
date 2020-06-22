@@ -28,8 +28,8 @@ from pysymbolic.algorithms.keras_predictive_models import *
 from pysymbolic.algorithms.symbolic_expressions import *
 from pysymbolic.algorithms.symbolic_metamodeling import *
 
-#for printing out training results
-from pysymbolic.algorithms.train_visualize import graph_loss
+#for recording training results
+from pysymbolic.algorithms.record import *
 
 from sympy.printing.theanocode import theano_function
 from sympy.utilities.autowrap import ufuncify
@@ -163,6 +163,7 @@ def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, 
         history = model.fit(x_train, y_train, verbose=verbose, validation_data = (x_val, y_val), callbacks = callbacks_list, epochs=epochs) #took out bath size to try to improve accuracy
 #         model.fit(x_train, y_train, verbose=0, callbacks = callbacks_list, epochs=50, batch_size=BATCH_SIZE) #validation_data=(x_val, y_val)
         graph_loss(history, filedir)
+        write_metadata(filedir, filedir, epochs, input_shape, "l2x")
     else:
         model.load_weights(filepath, by_name=True) 
 
