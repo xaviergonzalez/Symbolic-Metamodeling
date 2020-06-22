@@ -96,10 +96,10 @@ Changed further to be more flexible
 L2X_flex takes in the training and validation data, while also returning the trained model, meaning we should be able to attack it
 """
 
-def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, out_activation='sigmoid', 
-        loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True): 
+def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, filepath_, out_activation='sigmoid', 
+        loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True, epochs_ = 1, verbose = 1): 
     
-    BATCH_SIZE  = len(x_train)
+    # BATCH_SIZE  = len(x_train)
     # x_train, y_train, x_val, y_val, datatype_val = create_data(datatype, n = num_samples)
     input_shape = x_train.shape[1]
      
@@ -118,13 +118,13 @@ def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, 
                     kernel_regularizer=regularizers.l2(1e-3))(net) 
 
     # A tensor of shape, [batch_size, max_sents, 100]
-    logits = Dense(input_shape)(net) 
+    logits = Dense(input_shape)(net) #named dense_ in the output
     
     # [BATCH_SIZE, max_sents, 1]  
     k = num_selected_features; tau = 0.1
     samples = Sample_Concrete(tau, k, name = 'sample')(logits)
 
-    # q(X_S)
+    # q(X_S), aka variational family
     new_model_input = Multiply()([model_input, samples]) 
     net = Dense(num_hidden, activation=activation, name = 'dense1', 
                 kernel_regularizer=regularizers.l2(1e-3))(new_model_input) 
@@ -137,34 +137,40 @@ def L2X_flex(x_train, y_train, x_val, y_val, activation, num_selected_features, 
     preds = Dense(1, activation=out_activation, name = 'dense4', 
                   kernel_regularizer=regularizers.l2(1e-3))(net) 
     model = Model(model_input, preds)
-
+    filepath = filepath_
     if train: 
         adam = optimizers.Adam(lr = 1e-3)
         model.compile(loss=loss_, 
                       optimizer=optimizer_, 
                       metrics=['acc']) 
-        filepath="L2X.hdf5"
-        checkpoint = ModelCheckpoint(filepath, monitor='val_acc', 
-                                     verbose=0, save_best_only=True, mode='max')
+#         filepath="L2X.hdf5"
+#         checkpoint = ModelCheckpoint(filepath, monitor='val_accuracy', 
+#                                      verbose=0, save_best_only=True, mode='max')
+        checkpoint = ModelCheckpoint(filepath, save_weights_only=True)
         callbacks_list = [checkpoint]
-        model.fit(x_train, y_train, verbose=0, callbacks = callbacks_list, epochs=50, batch_size=BATCH_SIZE) #validation_data=(x_val, y_val)
+        model.fit(x_train, y_train, verbose=verbose, validation_data = (x_val, y_val), callbacks = callbacks_list, epochs=epochs_) #took out bath size to try to improve accuracy
+#         model.fit(x_train, y_train, verbose=0, callbacks = callbacks_list, epochs=50, batch_size=BATCH_SIZE) #validation_data=(x_val, y_val)
          
     else:
-        model.load_weights('L2X.hdf5', by_name=True) 
+        model.load_weights(filepath, by_name=True) 
 
-
+    logit_model = Model(model_input, logits)
+    logit_model.compile(loss=None, 
+                   optimizer='rmsprop',
+                   metrics=None)  #metrics=[None]) 
     pred_model = Model(model_input, samples)
     pred_model.compile(loss=None, 
                        optimizer='rmsprop',
                        metrics=None)  #metrics=[None]) 
     
-    scores = pred_model.predict(x_val, verbose = 0, batch_size = BATCH_SIZE)
+#     scores = pred_model.predict(x_val, verbose = 0, batch_size = BATCH_SIZE)
+    scores = pred_model.predict(x_val, verbose = 1)
     
     ranks = create_rank(scores, num_selected_features)
 
     median_ranks = compute_median_rank(scores, k = num_selected_features, datatype_val=None)
 
-    return model, pred_model, scores, ranks, median_ranks
+    return model, logit_model, pred_model, scores, ranks, median_ranks
 
 
 
