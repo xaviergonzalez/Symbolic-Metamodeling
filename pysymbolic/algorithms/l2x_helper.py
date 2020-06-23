@@ -127,8 +127,7 @@ def train_model(model, x_train, y_train, x_val, y_val, save_model, save_dir, cal
                             y_train, 
                             epochs = epochs, 
                             validation_data = (x_val, y_val),
-                            verbose = verbose, 
-                            callbacks = callbacks)
+                            verbose = verbose)
     graph_loss(history, save_dir, save_model)
     return history
 
@@ -217,7 +216,7 @@ def test_for_sub_error(name, datatype, feats = 10, n_train = 10 ** 4, n_val = 10
     train_model(soft_mod, x_train, y_train, x_val, y_val, save_model, soft_dir, [soft_cp], SOFT_MESSAGE, epochs = epochs, verbose = verbose)
     sig_mod, sig_logits_mod, sig_path, sig_dir, sig_cp = build_model(feats, num_hidden, name, "sig")
     train_model(sig_mod, x_train, y_train, x_val, y_val, save_model, sig_dir, [sig_cp], SIG_MESSAGE, epochs = epochs, verbose = verbose)
-    l2x_mod, l2x_logit_mod, _, _, _, _ = L2X_flex(x_train, y_train, x_val, y_val, activation = 'relu', filedir = str(date.today()) + "l2x" + 
+    l2x_mod, l2x_logit_mod, l2x_pred_mod, _, _, _ = L2X_flex(x_train, y_train, x_val, y_val, activation = 'relu', filedir = str(date.today()) + "l2x" + 
                                                   name,num_selected_features = datatype_dict[datatype], out_activation='sigmoid', 
                                                   loss='binary_crossentropy', optimizer='adam', num_hidden=num_hidden, num_layers=2, 
                                                   train = True, epochs = epochs, verbose = verbose)
@@ -242,6 +241,8 @@ def test_for_sub_error(name, datatype, feats = 10, n_train = 10 ** 4, n_val = 10
     print_error_breakdown(datatype, x_adv, y_adv, sig_mod, "sig", "sig adv " + name + datatype )
     print_error_breakdown(datatype, x_val, y_val, l2x_mod, "sig", "l2x val " + name + datatype )
     print_error_breakdown(datatype, x_adv, y_adv, l2x_mod, "sig", "l2x adv " + name + datatype)
+    #return the information needed to see the effect of the adversarial examples on the predictions
+    return x_val, y_val, x_adv, y_adv, l2x_mod, l2x_logit_mod, l2x_pred_mod
     
 def feats_to_error_l2x(feats, epochs = 1, verbose = 1):
     fd = "throwaway"
