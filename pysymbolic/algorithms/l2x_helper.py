@@ -129,7 +129,7 @@ def train_model(model, x_train, y_train, x_val, y_val, save_model, save_dir, cal
                             validation_data = (x_val, y_val),
                             verbose = verbose, 
                             callbacks = callbacks)
-    graph_loss(history, save_dir)
+    graph_loss(history, save_dir, save_model)
     return history
 
 #returns model for classifying XOR synthetic data, along with directory for saving
@@ -166,10 +166,8 @@ def error_breakdown(datatype, x_adv,y_adv, model, activation):
     errors = misclass_index(x_adv,y_adv, model, activation)
     sub_errors = []
     insub_errors = []
-    if datatype == "XOR":
-        thresh_fxn = xor_thresh_fxn
-    elif datatype == "orange_skin":
-        thresh_fxn = orange_thresh_fxn
+    datatype_dict  = {"XOR": xor_thresh_fxn, "orange_skin": orange_thresh_fxn, "nonlinear_additive" :additive_thresh_fxn, "switch": switch_thresh_fxn}
+    thresh_fxn = datatype_dict[datatype]
     for i in errors:
         if thresh_fxn(x_adv, i):
             sub_errors.append(i)
@@ -178,11 +176,23 @@ def error_breakdown(datatype, x_adv,y_adv, model, activation):
     return errors, sub_errors, insub_errors
 
 def xor_thresh_fxn(arr, i):
-    return min(abs(arr[i][0:2])) > 0.1
+    return abs(arr[i,0] * arr[i,1]) > 0.1
 
 def orange_thresh_fxn(arr, i):
     return abs(np.sum(arr[i,:4]**2) - 4) > 0.1
 
+def additive_thresh_fxn(arr, i):
+    return abs(-100 * np.sin(0.2*arr[i,0]) + abs(arr[i,1]) + arr[i,2] + np.exp(-arr[i,3])  - 2.4) > 0.1
+
+def switch_thresh_fxn(arr, i):
+    if abs(arr[i, -1]) < 0.1:
+        return False
+    elif arr[i, -1] > 0.1:
+        return orange_thresh_fxn(arr,i)
+    else:
+        return additive_thresh_fxn(arr[:, 4:], i)
+
+#for given model and validation set, analyzes whether errors are "significant" or not (based on how the data was created)
 def print_error_breakdown(datatype, x_val, y_val, model, activation, mod_name):
     error, sub_error, insub_error = error_breakdown(datatype, x_val, y_val, model, activation)
     denom = len(y_val)
@@ -192,10 +202,15 @@ def print_error_breakdown(datatype, x_val, y_val, model, activation, mod_name):
     print("percent of substantial errors: ", 100 * len(sub_error) / denom)
     print()
     
+def generate_switch_labels(X):
+    y = (X[:, -1] > 0) * (np.sum(X[:,:4]**2, axis = 1) - 4.0) + (1 - (X[:, -1] > 0)) * (-100 * np.sin(0.2*X[:,4]) + abs(X[:,5]) + X[:,6] + np.exp(-X[:,7])  - 2.4)
+    y = (y > 0) * 1
+    return y
+    
 def test_for_sub_error(name, datatype, feats = 10, n_train = 10 ** 4, n_val = 10 ** 4, epochs = 10, epsilon = 0.3, verbose = 0, save_model = True):
     #prepare the training data
     num_hidden = 200
-    datatype_dict = {"XOR": 2, "orange_skin":4}
+    datatype_dict = {"XOR": 2, "orange_skin":4, "nonlinear_additive" : 4, "switch" : 5}
     x_train, y_train, x_val, y_val, _ = create_data(datatype, n = n_train, nval = n_val, feats = feats)
     #initialize and train the various models
     soft_mod, soft_logits_mod, soft_path, soft_dir, soft_cp = build_model(feats, num_hidden, name, "soft")
@@ -217,7 +232,10 @@ def test_for_sub_error(name, datatype, feats = 10, n_train = 10 ** 4, n_val = 10
         y_adv = generate_orange_labels(x_adv)
     elif datatype == "nonlinear_additive":
         y_adv = generate_additive_labels(x_adv)
-    y_adv = (y_adv[:,0]>0.5)*1
+    if datatype != "switch":
+        y_adv = (y_adv[:,0]>0.5)*1
+    else:
+        y_adv = generate_switch_labels(x_adv)
     print_error_breakdown(datatype, x_val, y_val, soft_mod, "soft", "soft val " + name + datatype)
     print_error_breakdown(datatype, x_adv, y_adv, soft_mod, "soft", "soft adv " + name + datatype)
     print_error_breakdown(datatype, x_val, y_val, sig_mod, "sig", "sig val " + name + datatype)

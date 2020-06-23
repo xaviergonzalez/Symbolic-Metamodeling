@@ -25,7 +25,7 @@ logger = tf.get_logger()
 logger.setLevel(logging.ERROR)
 
 #produces graph of accuracy and loss over training time
-def graph_loss(history, filedir):
+def graph_loss(history, filedir, save = True):
     # summarize history for accuracy metric
     plt.plot(history.history['accuracy'])
     plt.plot(history.history['val_accuracy'])
@@ -33,7 +33,8 @@ def graph_loss(history, filedir):
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig(filedir + '/acc.png')
+    if save:
+        plt.savefig(filedir + '/acc.png')
     plt.show()
     # summarize history for loss
     plt.plot(history.history['loss'])
@@ -42,7 +43,8 @@ def graph_loss(history, filedir):
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig(filedir + '/loss.png')
+    if save:
+        plt.savefig(filedir + '/loss.png')
     plt.show()
 
 #helper function to write the metadata of training XOR model to its checkpoint
