@@ -154,7 +154,7 @@ class Sample_Concrete(Layer):
 
         batch_size = tf.shape(logits_)[0]
         d = tf.shape(logits_)[2]
-        uniform = tf.random_uniform(shape =(batch_size, self.k, d), 
+        uniform = tf.random.uniform(shape =(batch_size, self.k, d), 
             minval = np.finfo(tf.float32.as_numpy_dtype).tiny,
             maxval = 1.0)
 
@@ -178,6 +178,7 @@ https://github.com/Jianbo-Lab/L2X/blob/master/synthetic/explain.py
 
 """
 
+#update L2X to be tensorflow 2.0 compatible with tf.random.uniform
 def L2X(datatype, activation, num_samples, tot_num_features, num_selected_features, out_activation='sigmoid', 
         loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True): 
     
@@ -249,7 +250,7 @@ def L2X(datatype, activation, num_samples, tot_num_features, num_selected_featur
     # return model, pred_model, x_train, y_train, x_val, y_val, scores, ranks, median_ranks
     return median_ranks
 
-def get_instancewise_median_ranks(dataset_, num_samples, num_selected_features, method_):
+def get_instancewise_median_ranks(dataset_, num_samples, num_selected_features, method_, feats = 10):
     
     model_types_ = {'SR': "keras",
                     'LIME':"modified_keras", 
@@ -270,7 +271,7 @@ def get_instancewise_median_ranks(dataset_, num_samples, num_selected_features, 
         eval_method  = evaluators_[method_]
     
     
-        x_train, y_train, x_test, y_test, datatypes_val = create_data(dataset_, n = num_samples)
+        x_train, y_train, x_test, y_test, datatypes_val = create_data(dataset_, n = num_samples, feats = feats)
     
         eval_scores  = eval_method(x_train, y_train, x_test, model_type=model_type) 
         eval_ranks   = compute_median_rank(eval_scores, k=num_selected_features, datatype_val = datatypes_val)
