@@ -113,13 +113,15 @@ def get_symbolic_reg_scores(model, x_train, x_test):
 def get_lime_scores(predictive_model, x_train, x_test):
 
     lime_scores = []
-    explainer   = LimeTabularExplainer(x_train, feature_names=['X0','X1','X2','X3','X4','X5','X6','X7','X8','X9'])
+    FEATS = len(x_train[0])
+    feat_names = ["X"+ str(i) for i in range(len(x_train[0]))]
+    explainer   = LimeTabularExplainer(x_train, feature_names = feat_names)
 
     for w in range(x_test.shape[0]):
-        exp        = explainer.explain_instance(x_test[w], predictive_model.predict_proba, num_features=10)
+        exp        = explainer.explain_instance(x_test[w], predictive_model.predict_proba, num_features=FEATS)
         rank_list  = exp.as_list()
     
-        curr_scores                           = [np.where(np.array([pd.Series(rank_list[v][0]).str.contains('X'+str(k))[0]*1 for k in range(10)])==1)[0][0] for v in range(len(rank_list))]
+        curr_scores                           = [np.where(np.array([pd.Series(rank_list[v][0]).str.contains('X'+str(k))[0]*1 for k in range(FEATS)])==1)[0][0] for v in range(len(rank_list))]
         lime_score_                           = np.zeros((1, x_train.shape[1]))
         lime_score_[0, np.array(curr_scores)] = np.array([np.abs(rank_list[v][1]) for v in range(len(rank_list))])
 
@@ -183,7 +185,7 @@ def L2X(datatype, activation, num_samples, tot_num_features, num_selected_featur
         loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True): 
     
     BATCH_SIZE  = num_samples
-    x_train, y_train, x_val, y_val, datatype_val = create_data(datatype, n = num_samples)
+    x_train, y_train, x_val, y_val, datatype_val = create_data(datatype, n = num_samples, feats = tot_num_features)
     input_shape = tot_num_features
      
     activation = 'relu' if datatype in ['orange_skin','XOR'] else 'selu'
@@ -278,7 +280,7 @@ def get_instancewise_median_ranks(dataset_, num_samples, num_selected_features, 
         
     else:   
         
-        eval_ranks   = L2X(datatype=dataset_, activation='relu', num_samples=1000, tot_num_features=10, 
+        eval_ranks   = L2X(datatype=dataset_, activation='relu', num_samples=1000, tot_num_features=feats, 
                            num_selected_features=num_selected_features, out_activation='sigmoid', 
                            loss_='binary_crossentropy', optimizer_='adam', num_hidden=200, num_layers=2, train = True)
   
